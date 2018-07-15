@@ -1,6 +1,6 @@
 # AIRTIME DISBURSMENT SERVICE
 
-A program thatutilizes [AfricasTalking APIs](http://docs.africastalking.com/) to send Airtime to recipients.
+A program that uses [AfricasTalking APIs](http://docs.africastalking.com/) to send Airtime to recipients.
 The program takes a CSV file as input
 
 ### Example CSV file
