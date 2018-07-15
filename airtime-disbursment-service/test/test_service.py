@@ -2,11 +2,12 @@ import collections
 import json
 import unittest
 from queue import Queue
+import os
 
 from .. import Service, ServiceException
 
 AT_USERNAME = 'sandbox'
-AT_APIKEY = '34ff6792bc73f2ac02db08d8dc667b79f64cd127b3519b1a117002751fabee6f'
+AT_APIKEY = os.environ.get('AT_APIKEY') # provide your API KEy
 
 
 class TestDisbursmentService(unittest.TestCase):
