@@ -1,17 +1,17 @@
 # -*- encoding: utf-8 -*-
 
-import threading
 import csv
 import json
-import logging
 import os
 import pathlib
+import queue
 import re
+import threading
 import urllib.error
 import urllib.parse
 from urllib import request
 
-BASE_DIR = os.path.abspath(os.getcwd())
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 import logging
 import sys
@@ -86,7 +86,7 @@ class ServiceException(Exception):
 
 
 class Service(object):
-    def __init__(self, username=None, apikey=None, csv_filename=None):
+    def __init__(self, username=None, apikey=None, csv_filename=None, testing=False):
         self._AT_PRODUCTION_DOMAIN = 'africastalking.com'
         self._AT_SANDBOX_DOMAIN = 'sandbox.africastalking.com'
         self._airtime_endpoint = '/version1/airtime/send'
@@ -94,6 +94,8 @@ class Service(object):
         self._username = username
         self._csv_filename = csv_filename
         self._request_headers = {}
+        self.__testing = testing
+
 
         self.init_service(username, apikey, csv_filename)
 
@@ -182,21 +184,23 @@ class Service(object):
 
             return recepients
 
-    def send_airtime(self):
+    def send_airtime(self, _data=None, _queue=None):
         """
         Send the specified amount of airtime to the specified phone_number
         :param phone_number:
         :param amount:
         :return:
         """
+        _data = json.dumps(list(self.parse_csv())) if _data is None else json.dumps(_data)
         data = {
             "username": self._username,
-            "recipients": json.dumps(list(self.parse_csv()))
+            "recipients": _data
         }
         thread = threading.Thread(target=self._make_request, kwargs=dict(data=data, method='POST',
                                                                          url=self._make_url(self._airtime_endpoint),
-                                                                         cb=self.handle_airtime_response))
+                                                                         cb=self.handle_airtime_response, _queue=_queue))
         thread.start()
+        thread.join()
         return thread
 
     def handle_airtime_response(self, response):
@@ -217,11 +221,11 @@ class Service(object):
                     if resp['status'] == 'Failed': failed += 1
                     logging.info(resp)
                 logging.info("Successfull {} Failed {}".format(len(responses) - failed, failed))
-                return responses
+                return decoded_resp
             raise ServiceException(decoded_resp["errorMessage"])
         raise ServiceException(response)
 
-    def _make_request(self, data: dict, method: str, url: str, cb: callable):
+    def _make_request(self, data: dict, method: str, url: str, cb: callable, _queue):
         """
         Make a http call to Africastalking endpoint
         :param data: the payload
@@ -239,6 +243,10 @@ class Service(object):
         response = request.urlopen(req)
         self.responseCode = response.getcode()
         response = response.read()
+
+        if _queue is not None:
+            _queue.put(response)
+
         return cb(response)
 
 
