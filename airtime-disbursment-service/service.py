@@ -99,7 +99,7 @@ class Service(object):
             'User-Agent': 'africastalking-python/2.0.0',
             'ApiKey': self._api_key
         }
-        if os.getenv("AT_SANDBOX", False):
+        if bool(self._username == 'sandbox'):
             self._base_url = 'https://api.' + self._AT_SANDBOX_DOMAIN
         else:
             self._base_url = 'https://api.' + self._AT_PRODUCTION_DOMAIN
@@ -135,22 +135,39 @@ class Service(object):
         :return:
         """
         file_path = os.path.join(BASE_DIR, 'assets/{}'.format(self._csv_filename))
-        if pathlib.Path(file_path).suffix != '.csv':  # verify the file is a csv file
+
+        # verify the file is a csv file
+        if pathlib.Path(file_path).suffix != '.csv':
             raise ServiceException("Please specify a .csv file")
-        if not os.path.exists(file_path):  # raise an exception if the csv file isn't present
+
+        # raise an exception if the csv file isn't present
+        if not os.path.exists(file_path):
             raise ServiceException("Can not find the specified csv file\nDid you put in in the assets folder?")
 
-        with open(file_path) as file:  # read csv file
-            reader = csv.reader(file)
-            validated_recipients = filter(lambda row: phonenumber_isvalid(row[1]) and amount_isvalid(row[2]),
-                                          reader)  # validate amount and phone number
+        # read csv file
+        with open(file_path) as file:
+            csv_reader = csv.reader(file)
 
-            recipients_list = map(
-                lambda row: {"phoneNumber": self._format_phonenumber(row[1]), "amount": self._format_amount(row[2])},
-                list(
-                    validated_recipients))  # format recipients list appropriatly [{"phoneNumber":"+254711XXXYYY"
-            # ,"amount":"KES X"},{"phoneNumber":"+254733YYYZZZ","amount":"KES Y"}]
-            return recipients_list
+            # validate amount and phone number
+            recepients = filter(lambda row: phonenumber_isvalid(row[1]) and amount_isvalid(row[2]),
+                                csv_reader)
+
+            # merge duplicate fields
+            _recepients = {}
+            for name, phone_number, amount in recepients:
+                if phone_number not in _recepients.keys():
+                    _recepients[phone_number] = {"PhoneNumber": phone_number, "amount": amount}
+                else:
+                    amount = float(_recepients[phone_number]["amount"]) + float(amount)
+                    _recepients[phone_number]["amount"] = amount
+
+            # format the recepients list into the format [{"phoneNumber":"+254711XXXYYY","amount":"KES X"},{"phoneNumber":"+254733YYYZZZ","amount":"KES Y"}]
+            recepients = map(
+                lambda value: {"phoneNumber": self._format_phonenumber(value["PhoneNumber"]),
+                               "amount": self._format_amount(value["amount"])},
+                list(_recepients.values()))
+
+            return recepients
 
     def send_airtime(self):
         """
@@ -161,11 +178,19 @@ class Service(object):
         """
         data = {
             "username": self._username,
-            "recipients": list(self.parse_csv())
+            "recipients": json.dumps(list(self.parse_csv()))
         }
         resp = self._make_request(data=data, method='POST',
                                   url=self._make_url(self._airtime_endpoint))
-        logging.info(resp)
+        decoded_resp = json.loads(resp)
+        responses = decoded_resp["responses"]
+
+        if self.responseCode == 201:
+            if len(responses) > 0:
+                logging.info("recived responses: {}".format(responses))
+                return responses
+            raise ServiceException(decoded_resp["errorMessage"])
+        raise ServiceException(resp)
 
     def _make_request(self, data: dict, method: str, url: str):
         """
@@ -175,21 +200,17 @@ class Service(object):
         :param url: The url to make call to
         :return:
         """
-        data = json.dumps(data)
-
+        data = urllib.parse.urlencode(data).encode('utf-8')
         req = request.Request(
             method=method,
-            data=data.encode('utf-8'),
+            data=data,
             url=url,
             headers=self._request_headers
         )
-        print(req)
-        try:
-            with request.urlopen(req) as response:
-                return response
-        except urllib.error.URLError as e:
-            # raise ServiceException("Failed to send Airtime with error {}".format(e.reason))
-            raise
+        response = request.urlopen(req)
+        self.responseCode = response.getcode()
+        response = response.read()
+        return response
 
 
 if __name__ == "__main__":
