@@ -12,6 +12,17 @@ from urllib import request
 
 BASE_DIR = os.path.abspath(os.getcwd())
 
+import logging
+import sys
+
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)
+
+sys_logger = logging.StreamHandler(sys.stdout)
+sys_logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+sys_logger.setFormatter(formatter)
+root.addHandler(sys_logger)
 
 def phonenumber_isvalid(phonenumber: str) -> bool:
     """
