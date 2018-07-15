@@ -57,6 +57,10 @@ Add running permission to the runner script
 ```bash
 $ chmod +x ./run.sh
 ```
+Add the csv file under the `airtime-disbursment-service/assets/` directory and set its file name so that our program can pick it up
+```bash
+$ export CSV_FILENAME=your_csv_filename.csv
+```
 Provide your [AfricasTalking API key and Username](http://docs.africastalking.com/)
 ```bash
 $ export AT_APIKEY=my_africastalking_api_key
@@ -75,14 +79,34 @@ Expected output
 
 ## Running the tests
 
-Explain how to run the automated tests for this system
+### Unittests
 
-### Break down into end to end tests
-
-Explain what these tests test and why
-
+Activate your virtual environment
+```bash
+$ source .venv/bin/activate
 ```
-Give an example
+cd into the projects directory
+```bash
+$ cd jumo-interview/airtime-disbursment-service
+```
+Run
+```bash
+$ python -m unittest
+```
+
+## Doctest
+
+Activate your virtual environment
+```bash
+$ source .venv/bin/activate
+```
+cd into the projects directory
+```bash
+$ cd jumo-interview/airtime-disbursment-service
+```
+Run
+```bash
+$ python service.py -v
 ```
 
 ## Built With
