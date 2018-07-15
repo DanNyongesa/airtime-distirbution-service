@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 
+import threading
 import csv
 import json
 import logging
@@ -23,6 +24,7 @@ sys_logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 sys_logger.setFormatter(formatter)
 root.addHandler(sys_logger)
+
 
 def phonenumber_isvalid(phonenumber: str) -> bool:
     """
@@ -191,9 +193,20 @@ class Service(object):
             "username": self._username,
             "recipients": json.dumps(list(self.parse_csv()))
         }
-        resp = self._make_request(data=data, method='POST',
-                                  url=self._make_url(self._airtime_endpoint))
-        decoded_resp = json.loads(resp)
+        thread = threading.Thread(target=self._make_request, kwargs=dict(data=data, method='POST',
+                                                                         url=self._make_url(self._airtime_endpoint),
+                                                                         cb=self.handle_airtime_response))
+        thread.start()
+        return thread
+
+    def handle_airtime_response(self, response):
+        """
+        Callback that handles the response to sending airtime API call
+        Parses the reponses and handles any exception that arises
+        :param response:
+        :return:
+        """
+        decoded_resp = json.loads(response)
         responses = decoded_resp["responses"]
 
         if self.responseCode == 201:
@@ -203,12 +216,12 @@ class Service(object):
                 for resp in responses:
                     if resp['status'] == 'Failed': failed += 1
                     logging.info(resp)
-                logging.info("Successfull {} Failed {}".format(len(responses)-failed, failed))
+                logging.info("Successfull {} Failed {}".format(len(responses) - failed, failed))
                 return responses
             raise ServiceException(decoded_resp["errorMessage"])
-        raise ServiceException(resp)
+        raise ServiceException(response)
 
-    def _make_request(self, data: dict, method: str, url: str):
+    def _make_request(self, data: dict, method: str, url: str, cb: callable):
         """
         Make a http call to Africastalking endpoint
         :param data: the payload
@@ -226,7 +239,7 @@ class Service(object):
         response = request.urlopen(req)
         self.responseCode = response.getcode()
         response = response.read()
-        return response
+        return cb(response)
 
 
 if __name__ == "__main__":
