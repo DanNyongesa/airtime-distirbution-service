@@ -1,0 +1,20 @@
+language: python
+
+python:
+    - 3.6
+
+script:
+    - python airtime-disbursment-service/service.py -v # doctests
+    - python -m unittest # unittests
+
+# whitelist
+branches:
+  only:
+    - master
+    - develop
+
+notifications:
+  email:
+    - npiusdan@gmail.com
+  on_success: change
+  on_failure: always
