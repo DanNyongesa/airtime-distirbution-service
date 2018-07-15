@@ -198,7 +198,12 @@ class Service(object):
 
         if self.responseCode == 201:
             if len(responses) > 0:
-                logging.info("recived responses: {}".format(responses))
+                logging.info("received {} responses".format(len(responses)))
+                failed = 0
+                for resp in responses:
+                    if resp['status'] == 'Failed': failed += 1
+                    logging.info(resp)
+                logging.info("Successfull {} Failed {}".format(len(responses)-failed, failed))
                 return responses
             raise ServiceException(decoded_resp["errorMessage"])
         raise ServiceException(resp)
